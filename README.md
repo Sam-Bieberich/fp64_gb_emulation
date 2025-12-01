@@ -1,118 +1,113 @@
-# FP64 Emulation Benchmark (Blackwell GB100/GB200)
+# FP64 Emulation Workflow for Blackwell (GB100/GB200)
 
-This project benchmarks Double-Precision (FP64) performance on NVIDIA Blackwell GPUs, comparing:
+This repository provides a practical workflow to enable/disable **FP64 emulation via Tensor Cores** on NVIDIA Blackwell GPUs (CUDA 13.0+). Use this to accelerate double-precision computations in your existing applications.
 
-- **Native FP64** baseline (cuBLAS Pedantic Math - no tensor core acceleration)
-- **Emulated FP64** via ADP/Tensor Core acceleration (cuBLAS Default Math)
+> **Quick Start:** See [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md) for a cheat sheet of environment variables, API calls, and common patterns.
+---
 
-Two benchmarks are provided:
+## How to Activate FP64 Emulation
 
-1. **DGEMM Benchmark** (`dgemm_benchmark`): Pure matrix multiplication (C = A × B)
-2. **Linpack Benchmark** (`linpack_benchmark`): HPL-like LU solver (Ax = b)
+### Method 1: Environment Variables (Application-Wide)
 
-Both measure GFLOP/s for `N=16384` and report the speedup of Emulated over Native.
-
-## Build
-
-Requirements:
-- CUDA Toolkit 13.0+ installed and on PATH/CMake findable
-- cuBLAS and cuSOLVER available (bundled with CUDA)
-
-Commands (Windows bash):
+Set these before running any CUDA application that uses cuBLAS:
 
 ```bash
-mkdir -p build
+export CUBLAS_MATH_MODE=CUBLAS_DEFAULT_MATH           # Enable Tensor Core acceleration
+export CUBLAS_EMULATION_STRATEGY=performant           # Use fastest emulation path
+# Optional: configure workspace for determinism
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+```
+
+To disable emulation (native FP64 only):
+
+```bash
+export CUBLAS_MATH_MODE=CUBLAS_PEDANTIC_MATH          # Force native FP64 units
+```
+
+### Method 2: Programmatic Control (In Your Code)
+
+For applications where you control the source, set the math mode via cuBLAS API:
+
+```cpp
+#include <cublas_v2.h>
+
+cublasHandle_t handle;
+cublasCreate(&handle);
+
+// Enable FP64 emulation (Tensor Cores + ADP)
+cublasSetMathMode(handle, CUBLAS_DEFAULT_MATH);
+
+// For explicit control with cublasGemmEx:
+// Use computeType = CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT
+// and set cublasSetMathMode(handle, CUBLAS_FP64_EMULATED_FIXEDPOINT_MATH);
+
+// ... your cublasDgemm or cublasGemmEx calls ...
+
+// To revert to native FP64:
+cublasSetMathMode(handle, CUBLAS_PEDANTIC_MATH);
+```
+
+### Method 3: Comparison Script (Black-Box Apps)
+
+For applications you can't modify (precompiled binaries, scripts), use the included `compare_fp64.sh` wrapper:
+
+```bash
+./compare_fp64.sh your_application.sh [args...]
+```
+
+This runs your script twice:
+1. **Native FP64** (pedantic math)
+2. **Emulated FP64** (default math + ADP)
+
+It reports execution time for both runs.
+
+---
+
+## Quick Example
+
+A minimal example is provided in `example_simple.cu` demonstrating FP64 emulation toggle.
+
+### Build the Example
+
+```bash
+mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=110
-cmake --build . --config Release -j
+cmake --build . --config Release
 ```
 
-Adjust `-DCMAKE_CUDA_ARCHITECTURES` if your device SM differs (e.g., `100` for GB100).
-
-## Run
-
-### DGEMM Benchmark
+### Run the Example Directly
 
 ```bash
-./dgemm_benchmark            # defaults to N=16384
-./dgemm_benchmark 8192       # custom N
+./build/example_simple              # Linux
+./build/Release/example_simple.exe  # Windows
 ```
 
-**Output example:**
-```
-Using device: NVIDIA GB100 (SM 110)
-Native FP64 (Pedantic) GFLOP/s: 1250.5
-Emulated FP64 (ADP/Default) GFLOP/s: 8750.2
-Performance Speedup (Emulated / Native): 7.0x
-```
-
-### Linpack Benchmark (HPL-like)
+### Compare with the Script Wrapper
 
 ```bash
-./linpack_benchmark          # defaults to N=16384
-./linpack_benchmark 8192     # custom N
+chmod +x compare_fp64.sh example_app.sh
+./compare_fp64.sh ./example_app.sh
 ```
 
-**Output example:**
-```
-Using device: NVIDIA GB100 (SM 110)
-Problem size N=16384 (matrix 16384x16384)
-Approximate memory usage: 2.3 GiB
+This runs `example_app.sh` twice (which executes the compiled binary) - once with native FP64, once with emulated FP64 - and reports the speedup.
 
-Native FP64 (Pedantic) GFLOP/s: 1100.3
-Emulated FP64 (ADP/Default) GFLOP/s: 7650.8
-Performance Speedup (Emulated / Native): 6.95x
-```
+---
+
+## Compatibility
+
+- **GPU**: NVIDIA Blackwell (GB100, GB200) or newer with SM 100/110+
+- **CUDA**: Toolkit 13.0 or later
+- **cuBLAS**: Version 13.1+ (bundled with CUDA 13)
+- **Driver**: r580+ on Linux/Windows
+
+---
 
 ## Notes
 
-### Memory Requirements
-
-| Benchmark | N=16384 Memory Usage | Description |
-|-----------|---------------------|-------------|
-| **DGEMM** | ~6 GiB | Three N×N matrices (A, B, C) |
-| **Linpack** | ~2.3 GiB | One N×N matrix (A) + vectors + workspace |
-
-Ensure sufficient free device memory before running.
-
-### Performance Characteristics
-
-- **DGEMM**: Pure compute-bound workload (BLAS Level 3)
-  - FLOP count: 2N³ ≈ 8.79 TFLOP for N=16384
-  - Uses 2 warm-up + 10 timed iterations
-  
-- **Linpack**: LU decomposition + solve (similar to HPL/TOP500)
-  - FLOP count: (2/3)N³ + 2N² ≈ 2.93 TFLOP for N=16384
-  - Uses 2 warm-up + 5 timed iterations (slower per iteration)
-  - Includes pivoting and forward/backward substitution
-
-### Why Two Benchmarks?
-
-1. **DGEMM** is the simplest measure of FP64 compute throughput
-2. **Linpack** represents realistic HPC workloads (linear system solving)
-3. Both are dominated by the same cuBLAS DGEMM kernel internally
-4. Linpack speedup validates emulation across a broader algorithm (not just one kernel)
-
-### Math Modes
-
-- **CUBLAS_PEDANTIC_MATH**: Forces native FP64 execution (no tensor cores)
-- **CUBLAS_DEFAULT_MATH**: Enables ADP (Alternating Direction Preconditioner) on Blackwell
-  - Uses FP32/TF32 tensor cores with iterative refinement
-  - Achieves FP64 accuracy with ~7x throughput boost
-
-## Research Documentation
-
-See [`HPL_INTEGRATION_RESEARCH.md`](HPL_INTEGRATION_RESEARCH.md) for detailed analysis of:
-- HPL benchmark integration options
-- Why we chose a custom cuSOLVER-based approach
-- Comparison with standard HPL
-- Alternative implementations
-
-## References
-
-- [NVIDIA cuBLAS Documentation](https://docs.nvidia.com/cuda/cublas/index.html)
-- [NVIDIA cuSOLVER Documentation](https://docs.nvidia.com/cuda/cusolver/index.html)
-- [HPL (High-Performance Linpack)](https://www.netlib.org/benchmark/hpl/)
-- [TOP500 Supercomputer List](https://www.top500.org/) (uses HPL as benchmark)
+- FP64 emulation trades slight numerical precision for significant performance gains (often 2-10x speedup depending on workload)
+- Workspace configuration (`CUBLAS_WORKSPACE_CONFIG`) is optional but recommended for reproducible results
+- Some workloads may not benefit; profile both modes to confirm speedup
+- Check your application's tolerance for reduced precision before deploying emulation in production
 
 
