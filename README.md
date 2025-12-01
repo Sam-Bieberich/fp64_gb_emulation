@@ -83,7 +83,7 @@ This runs your script twice:
 > **Setting up a virtual environment (recommended):**
 > ```bash
 > # Create a new virtual environment
-> python -m venv fp64_env
+> python3 -m venv fp64_env
 > 
 > # Activate it (Linux/Mac)
 > source fp64_env/bin/activate
@@ -91,14 +91,11 @@ This runs your script twice:
 > # Activate it (Windows bash/Git Bash)
 > source fp64_env/Scripts/activate
 > 
-> # Activate it (Windows CMD)
-> fp64_env\Scripts\activate.bat
-> 
 > # Install CuPy (requires CUDA Toolkit 13.0+ already installed)
 > pip install cupy-cuda13x
 > 
 > # Verify installation
-> python -c "import cupy as cp; print(f'CuPy {cp.__version__}')"
+> python3 -c "import cupy as cp; print(f'CuPy {cp.__version__}')"
 > ```
 
 **Or install globally:**
@@ -107,7 +104,7 @@ This runs your script twice:
 pip install cupy-cuda13x
 
 # Verify installation
-python -c "import cupy as cp; print(f'CuPy {cp.__version__}')"
+python3 -c "import cupy as cp; print(f'CuPy {cp.__version__}')"
 ```
 
 **Run the example:**
