@@ -2,12 +2,17 @@
 
 This repository provides a practical workflow to enable/disable **FP64 emulation via Tensor Cores** on NVIDIA Blackwell GPUs (CUDA 13.0+). Use this to accelerate double-precision computations in your existing applications.
 
-> **Quick Start:** See [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md) for a cheat sheet of environment variables, API calls, and common patterns.
+> **Works with any language:** Python (CuPy, PyTorch, TensorFlow), Julia, Fortran, MATLAB, C/C++, or any framework using cuBLAS.
+
+> **Quick Start:** See [`QUICK_REFERENCE.md`](QUICK_REFERENCE.md) for a cheat sheet of environment variables and [`PYTHON_SETUP.md`](PYTHON_SETUP.md) for Python-specific installation and examples.
+
 ---
 
 ## How to Activate FP64 Emulation
 
-### Method 1: Environment Variables (Application-Wide)
+### Method 1: Environment Variables (Universal - Works with Any Language)
+
+**This method works with ALL languages** (Python, Julia, MATLAB, C/C++, etc.)
 
 Set these before running any CUDA application that uses cuBLAS:
 
@@ -18,26 +23,36 @@ export CUBLAS_EMULATION_STRATEGY=performant           # Use fastest emulation pa
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 ```
 
-To disable emulation (native FP64 only):
-
+**Example with Python:**
 ```bash
-export CUBLAS_MATH_MODE=CUBLAS_PEDANTIC_MATH          # Force native FP64 units
-```
+export CUBLAS_MATH_MODE=CUBLAS_DEFAULT_MATH
+python your_script.py  # Automatically uses emulated FP64 in cuBLAS calls
+### Method 2: Programmatic Control (Language-Specific)
 
-### Method 2: Programmatic Control (In Your Code)
-
-For applications where you control the source, set the math mode via cuBLAS API:
-
+**C/C++ (Direct cuBLAS API):**
 ```cpp
 #include <cublas_v2.h>
 
 cublasHandle_t handle;
 cublasCreate(&handle);
+cublasSetMathMode(handle, CUBLAS_DEFAULT_MATH);  // Enable emulation
+// ... your cublasDgemm calls ...
+cublasSetMathMode(handle, CUBLAS_PEDANTIC_MATH); // Disable emulation
+```
 
-// Enable FP64 emulation (Tensor Cores + ADP)
-cublasSetMathMode(handle, CUBLAS_DEFAULT_MATH);
+**Python (via environment - recommended):**
+```python
+import os
+os.environ['CUBLAS_MATH_MODE'] = 'CUBLAS_DEFAULT_MATH'
+import cupy as cp  # CuPy will use emulated FP64
+# or PyTorch, TensorFlow, etc.
+```
 
-// For explicit control with cublasGemmEx:
+**Note:** For C/C++, you can also use explicit control with `cublasGemmEx`:
+```cpp
+// Use computeType = CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT
+// and set cublasSetMathMode(handle, CUBLAS_FP64_EMULATED_FIXEDPOINT_MATH);
+```For explicit control with cublasGemmEx:
 // Use computeType = CUBLAS_COMPUTE_64F_EMULATED_FIXEDPOINT
 // and set cublasSetMathMode(handle, CUBLAS_FP64_EMULATED_FIXEDPOINT_MATH);
 
@@ -57,38 +72,74 @@ For applications you can't modify (precompiled binaries, scripts), use the inclu
 
 This runs your script twice:
 1. **Native FP64** (pedantic math)
-2. **Emulated FP64** (default math + ADP)
+---
 
-It reports execution time for both runs.
+## Quick Examples
+
+### Python Example (Recommended for Most Users)
+
+**Environment Setup:**
+```bash
+# Install CuPy (requires CUDA Toolkit 13.0+ already installed)
+pip install cupy-cuda13x
+
+# Verify installation
+python -c "import cupy as cp; print(f'CuPy {cp.__version__}')"
+```
+
+**Run the example:**
+```bash
+# Test with native FP64
+CUBLAS_MATH_MODE=CUBLAS_PEDANTIC_MATH python example_simple.py
+
+# Test with emulated FP64
+CUBLAS_MATH_MODE=CUBLAS_DEFAULT_MATH python example_simple.py
+
+# Or use the comparison script
+chmod +x run_python.sh compare_fp64.sh
+./compare_fp64.sh ./run_python.sh
+```
+
+The Python example (`example_simple.py`) uses CuPy for matrix multiplication. It automatically uses cuBLAS DGEMM internally, which respects the `CUBLAS_MATH_MODE` environment variable.
+
+**See [`PYTHON_SETUP.md`](PYTHON_SETUP.md) for detailed installation, troubleshooting, and examples with PyTorch and TensorFlow.**
 
 ---
 
-## Quick Example
+### C/C++ Example
 
-A minimal example is provided in `example_simple.cu` demonstrating FP64 emulation toggle.
+A minimal C++ example is provided in `example_simple.cu` demonstrating FP64 emulation toggle.
+## Compatibility
 
-### Build the Example
+- **GPU**: NVIDIA Blackwell (GB100, GB200) or newer with SM 100/110+
+- **CUDA**: Toolkit 13.0 or later
+- **cuBLAS**: Version 13.1+ (bundled with CUDA 13)
+- **Driver**: r580+ on Linux/Windows
+- **Languages**: 
+  - **Python**: CuPy 13.0+, PyTorch 2.2+, TensorFlow 2.15+
+  - **Julia**: CUDA.jl with CUDA 13+
+  - **C/C++**: Direct cuBLAS API
+  - **MATLAB**: R2024a+ with Parallel Computing Toolbox
+  - **Fortran**: Any version linking to cuBLAS 13+
 
-```bash
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_ARCHITECTURES=110
-cmake --build . --config Release
+---ke --build . --config Release
 ```
 
-### Run the Example Directly
+**Run the Example:**
 
 ```bash
 ./build/example_simple              # Linux
 ./build/Release/example_simple.exe  # Windows
 ```
 
-### Compare with the Script Wrapper
+**Compare with the Script Wrapper:**
 
 ```bash
 chmod +x compare_fp64.sh example_app.sh
 ./compare_fp64.sh ./example_app.sh
 ```
+
+---
 
 This runs `example_app.sh` twice (which executes the compiled binary) - once with native FP64, once with emulated FP64 - and reports the speedup.
 
