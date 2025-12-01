@@ -18,7 +18,12 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Executable
+# Find CUDA toolkit and libraries
+find_package(CUDAToolkit REQUIRED)
+
+# ============================================================================
+# DGEMM Benchmark (existing)
+# ============================================================================
 add_executable(dgemm_benchmark dgemm_benchmark.cu)
 
 # Compiler options
@@ -27,11 +32,26 @@ target_compile_options(dgemm_benchmark PRIVATE
   $<$<COMPILE_LANGUAGE:CXX>:-O3>
 )
 
-# Find CUDA toolkit and cuBLAS
-find_package(CUDAToolkit REQUIRED)
-
 # Link cuBLAS (and CUDA runtime)
 target_link_libraries(dgemm_benchmark PRIVATE CUDA::cublas CUDA::cudart)
+
+# ============================================================================
+# Linpack Benchmark (HPL-like LU solver)
+# ============================================================================
+add_executable(linpack_benchmark linpack_benchmark.cu)
+
+# Compiler options
+target_compile_options(linpack_benchmark PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda -Xptxas -O3>
+  $<$<COMPILE_LANGUAGE:CXX>:-O3>
+)
+
+# Link cuBLAS, cuSOLVER, and CUDA runtime
+target_link_libraries(linpack_benchmark PRIVATE 
+  CUDA::cublas 
+  CUDA::cusolver 
+  CUDA::cudart
+)
 
 # On Windows, ensure proper subsystem and definitions
 if(WIN32)
