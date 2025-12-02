@@ -1,0 +1,49 @@
+When doing the cmake step, need to do it with these flags on Vista (12.4 cuda version)
+
+cd build
+rm -rf *
+cmake -DBUILD_TEST=ON \
+      -DCMAKE_CUDA_COMPILER=$(which nvcc) \
+      -DCUDAToolkit_ROOT=/opt/apps/nvidia_math/12.4 \
+      ..
+make -j4
+ls -lh main.test
+
+The final line there should return the perms and location of the file if it worked correctly. 
+
+---------RUNNING--------------
+
+# Set library path for cuBLAS
+export LD_LIBRARY_PATH=/opt/apps/nvidia_math/12.4/targets/sbsa-linux/lib:$LD_LIBRARY_PATH
+
+# Set compute mode (default for tests)
+export OZIMMU_COMPUTE_MODE=fp64_int8_9
+
+./main.test normal01 dgemm seq 1024 1024 1 fp64_int8_3 fp64_int8_9 fp64_int8_18 dgemm
+
+Compare all available split levels (3, 6, 9, 12, 15, 18)
+
+./main.test normal01 dgemm seq 2048 2048 1 \
+    fp64_int8_3 fp64_int8_6 fp64_int8_9 fp64_int8_12 fp64_int8_15 fp64_int8_18 dgemm
+
+Compare across multiple matrix sizes
+
+# Test sizes from 1024 to 4096, stepping by 1024
+./main.test normal01 dgemm seq 1024 4096 1024 fp64_int8_9 dgemm
+
+Compare with FP32 (sgemm) as well
+
+./main.test normal01 dgemm seq 2048 2048 1 fp64_int8_9 dgemm sgemm
+
+Test on ill-conditioned matrices (exponential distribution)
+
+./main.test exp dgemm seq 1024 1024 1 fp64_int8_3 fp64_int8_9 fp64_int8_18 dgemm
+
+Save Results to CSV
+
+./main.test normal01 dgemm seq 1024 4096 1024 \
+    fp64_int8_3 fp64_int8_9 fp64_int8_18 dgemm > comparison_results.csv
+
+Test Syntax Reminder
+
+./main.test <input_dist> <ref_impl> <size_mode> <m_start> <m_end> <m_interval> <mode1> [mode2 ...]
