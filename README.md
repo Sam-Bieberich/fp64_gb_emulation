@@ -129,6 +129,39 @@ The Python example (`example_simple.py`) uses CuPy for matrix multiplication. It
 ### C/C++ Example
 
 A minimal C++ example is provided in `example_simple.cu` demonstrating FP64 emulation toggle.
+
+---
+
+### INT8 vs FP64 Comparison (C/C++)
+
+This repository includes a simple C++ benchmark `c_comparison.cu` and a helper script `compare_int8.sh` to compile and run an FP64 DGEMM vs an INT8-quantized GEMM (via `cublasGemmEx`).
+
+Quick steps (Linux / Windows bash):
+
+```bash
+# build and run via helper script (script compiles with nvcc)
+chmod +x compare_int8.sh
+./compare_int8.sh
+```
+
+What the script does:
+- Checks for `nvcc` and compiles `c_comparison.cu` into `build/c_comparison` (links cuBLAS)
+- Runs the binary and parses output lines like:
+  - `FP64 GEMM time: <seconds> s`
+  - `FP64 GFLOP/s: <value>`
+  - `INT8 GEMM time: <seconds> s`
+  - `INT8 GOPS: <value>`
+  - `INT8 rel_l2_error: <value>`
+- Computes and prints GFLOPS/GOPS and speedup (FP64_time / INT8_time)
+
+Notes and caveats:
+- `c_comparison.cu` uses `m=n=k=1024` by default; edit the source if you want different sizes.
+- The INT8 path performs simple per-tensor symmetric quantization and runs `cublasGemmEx` with `CUDA_R_8I` inputs and `CUBLAS_COMPUTE_32I` accumulation, then dequantizes the int32 result and reports relative L2 error vs the FP64 reference.
+- For production-quality INT8 throughput, consider replacing `cublasGemmEx` with `cuBLASLt` heuristics; `cublasGemmEx` is used here for portability and simplicity.
+- Ensure your GPU has enough memory — larger matrix sizes require substantial device memory for FP64 reference and INT8 buffers.
+
+If you want me to integrate `c_comparison` into `CMakeLists.txt` or add a `cublasLt`-based INT8 path, tell me and I will implement it.
+
 ## Compatibility
 
 - **GPU**: NVIDIA Blackwell (GB100, GB200) or newer with SM 100/110+
