@@ -16,6 +16,9 @@ The final line there should return the perms and location of the file if it work
 # Set library path for cuBLAS
 export LD_LIBRARY_PATH=/opt/apps/nvidia_math/12.4/targets/sbsa-linux/lib:$LD_LIBRARY_PATH
 
+#If on the GB10, do this one instead:
+export LD_LIBRARY_PATH=/usr/local/cuda-13.0/targets/sbsa-linux/lib:$LD_LIBRARY_PATH
+
 # Set compute mode (default for tests)
 export OZIMMU_COMPUTE_MODE=fp64_int8_9
 
