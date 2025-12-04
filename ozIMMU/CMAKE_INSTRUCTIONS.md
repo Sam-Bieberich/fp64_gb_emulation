@@ -5,6 +5,23 @@ Converted from `ozIMMU/cmake_instructions.txt`.
 This file documents the CMake flags, build steps, environment variables, and run examples used on Vista and GB10 (CUDA 13.0) setups.
 
 ---
+## Vista build & run notes (CUDA 13.0)
+
+ml restore ozaki (personal module I saved with the 13.0 cuda setup required)
+
+```bash
+cd build
+rm -rf *
+cmake -DBUILD_TEST=ON \
+      -DCMAKE_CUDA_COMPILER=$(which nvcc) \
+      -DCUDAToolkit_ROOT=/home1/apps/nvidia/Linux_aarch64/25.9/cuda/13.0/bin \
+      ..
+make -j4
+ls -lh main.test
+```
+
+      -DCUDAToolkit_ROOT=/home1/apps/nvidia/Linux_aarch64/25.9/cuda/13.0 \
+
 
 ## GB10 build & run notes (CUDA 13.0)
 
@@ -20,8 +37,6 @@ cmake -DBUILD_TEST=ON \
 make -j4
 ls -lh main.test
 ```
-
-On GB10, library paths may differ:
 
 ```bash
 # Set library path for cuBLAS (GB10)
