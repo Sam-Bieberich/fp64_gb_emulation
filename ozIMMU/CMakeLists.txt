@@ -1,21 +1,22 @@
 cmake_minimum_required(VERSION 3.18)
 project(ozimmu LANGUAGES CXX CUDA)
 
-set(BUILD_TEST ON)
+set(BUILD_TEST OFF)
 set(AUTO_SUBMODULE_UPDATE ON)
 
 find_package(CUDAToolkit 12.1 REQUIRED)
 
-# Add explicit paths for your environment
-include_directories(/opt/apps/nvidia_math/12.4/include)
-link_directories(/opt/apps/nvidia_math/12.4/targets/sbsa-linux/lib)
-
 # Update git submodules
 if (${AUTO_SUBMODULE_UPDATE})
+  execute_process(
+    COMMAND git submodule update --init --recursive
+  )
 endif()
 
 # CUDA/CXX
 foreach(lang CXX CUDA)
+  set(CMAKE_${lang}_STANDARD          17)
+  set(CMAKE_${lang}_STANDARD_REQUIRED ON)
   set(CMAKE_${lang}_EXTENSIONS        OFF)
 endforeach()
 
@@ -30,13 +31,14 @@ file(GLOB HEADERS "${INCDIR}/ozimmu/*.hpp")
 
 SET(lib_name ozimmu)
 add_library(${lib_name} SHARED
+  ${SRCDIR}/handle.cu
   ${SRCDIR}/config.cu
+  ${SRCDIR}/split.cu
+  ${SRCDIR}/gemm.cu
   ${SRCDIR}/cublas.cu
   ${SRCDIR}/cublas_helper.cu
   ${SRCDIR}/culip.cu
-  ${SRCDIR}/gemm.cu
-  ${SRCDIR}/handle.cu
-  ${SRCDIR}/split.cu
+  ${HEADERS}
 )
 
 target_include_directories(${lib_name} PUBLIC ${INCDIR})
@@ -44,12 +46,14 @@ target_include_directories(${lib_name} PUBLIC ${SRCDIR}/cutf/include)
 set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES 0)
 
 target_link_libraries(${lib_name} PRIVATE
+  cuda
   cublas
 )
 
 set_target_properties(${lib_name} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(${lib_name} PROPERTIES PUBLIC_HEADER ${INCDIR}/ozimmu/${lib_name}.hpp)
 target_compile_options(${lib_name} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--ptxas-options=-v>)
+
 ##########################################################################
 # Installing
 ##########################################################################

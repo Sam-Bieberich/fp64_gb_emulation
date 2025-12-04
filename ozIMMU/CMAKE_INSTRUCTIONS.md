@@ -13,15 +13,12 @@ ml restore ozaki (personal module I saved with the 13.0 cuda setup required)
 cd build
 rm -rf *
 cmake -DBUILD_TEST=ON \
-      -DCMAKE_CUDA_COMPILER=$(which nvcc) \
-      -DCUDAToolkit_ROOT=/home1/apps/nvidia/Linux_aarch64/25.9/cuda/13.0/bin \
-      ..
+    -DCMAKE_CUDA_COMPILER=$(which nvcc) \
+    -DCUDAToolkit_ROOT=/home1/apps/nvidia/Linux_aarch64/25.9/cuda/13.0 \
+    ..
 make -j4
 ls -lh main.test
 ```
-
-      -DCUDAToolkit_ROOT=/home1/apps/nvidia/Linux_aarch64/25.9/cuda/13.0 \
-
 
 ## GB10 build & run notes (CUDA 13.0)
 
