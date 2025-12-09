@@ -20,7 +20,7 @@ make -j4
 ls -lh main.test
 ```
 
-This is as close as I got. No matter what I do, the make -j4 command fails, and I think it is because the CUDA installation either does not have cublas installed, or the version is incompatible. I am stopping testing since Todd was able to get some numbers with Vista and a GB200 already. 
+<!-- This is as close as I got. No matter what I do, the make -j4 command fails, and I think it is because the CUDA installation either does not have cublas installed, or the version is incompatible. I am stopping testing since Todd was able to get some numbers with Vista and a GB200 already.  -->
 
 ## GB10 build & run notes (CUDA 13.0)
 
